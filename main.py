@@ -2,10 +2,13 @@ import cv2
 import torch
 import logging
 import time
+from flask import Flask, jsonify, request
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
 
 class Orchestrator:
     def __init__(self, rtsp_url):
@@ -31,6 +34,9 @@ class Orchestrator:
         self.runner.stop()
         self.state_machine.transition_to('inactive')
         logger.info("Система остановлена")
+
+    def get_state(self):
+        return self.state_machine.state
 
 class StateMachine:
     def __init__(self):
@@ -101,16 +107,34 @@ class Runner:
             cv2.destroyAllWindows()
             logger.info("Соединение с RTSP потоком закрыто")
 
+# Инициализация оркестратора
+rtsp_url = 'rtsp://fake.kerberos.io/stream'
+orchestrator = Orchestrator(rtsp_url)
+
+@app.route('/api/state', methods=['GET'])
+def get_state():
+    """
+    Возвращает текущее состояние системы.
+    """
+    state = orchestrator.get_state()
+    return jsonify({"state": state})
+
+@app.route('/api/state', methods=['POST'])
+def set_state():
+    """
+    Изменяет состояние системы (запуск или остановка).
+    """
+    action = request.json.get('action')
+
+    if action == 'start':
+        orchestrator.start()
+        return jsonify({"status": "success", "message": "Orchestrator started"})
+    elif action == 'stop':
+        orchestrator.stop()
+        return jsonify({"status": "success", "message": "Orchestrator stopped"})
+    else:
+        return jsonify({"status": "error", "message": "Invalid action"}), 400
+
 if __name__ == "__main__":
-    # Укажите URL RTSP потока
-    rtsp_url = 'rtsp://fake.kerberos.io/stream'
-
-    # Запускаем оркестратор
-    orchestrator = Orchestrator(rtsp_url)
-    orchestrator.start()
-
-    # Подождем немного, чтобы дать время обработать несколько кадров
-    time.sleep(10)  # или больше, чтобы получить результаты
-
-    # Останавливаем оркестратор
-    orchestrator.stop()
+    # Запуск Flask API
+    app.run(host='0.0.0.0', port=5000)
