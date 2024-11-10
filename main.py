@@ -69,3 +69,4 @@ if __name__ == "__main__":
 
     # Запускаем детекцию
     detect_people_in_rtsp(rtsp_url)
+
