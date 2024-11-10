@@ -8,7 +8,7 @@ def detect_people_in_rtsp(rtsp_url):
     cap = cv2.VideoCapture(rtsp_url)
 
     # Загрузка модели YOLOv5 для детекции людей
-    model = YOLOv5.load("path/to/yolov5s.pt")
+    model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
     # Проверка, что поток доступен
     if not cap.isOpened():
