@@ -95,6 +95,31 @@
 
 
 ### Запуск системы
+
+###### Создание виртуального окружения:
+```shell
+python -m venv venv
+```
+
+###### Активация виртуального окружения на Mac:
+```shell
+source venv/bin/activate
+```
+
+###### Активация виртуального окружения на Windows:
+```shell
+venv\Scripts\activate
+```
+
+###### Обновление пакетов виртуального окружения:
+```shell
+pip install --upgrade pip
+```
+###### Установка зависимостей:
+```shell
+pip install -r requirements.txt
+```
+
 1. Запустите API:
    ```bash
    uvicorn main:app --reload
