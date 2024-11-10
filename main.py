@@ -5,6 +5,7 @@ import time
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
+from fastapi import HTTPException
 from multiprocessing import Process, Value
 
 # Настройка логирования
@@ -109,6 +110,36 @@ def start_runner(rtsp_url, active):
 
 active = Value('b', False)  # Флаг активности видеопотока
 process = None
+
+@app.get("/health")
+def health_check():
+    """
+    Эндпоинт для проверки работоспособности приложения.
+    Возвращает HTTP статус 200, если приложение работает.
+    """
+    return {"status": "healthy"}
+
+
+@app.get("/status")
+def status_check():
+    """
+    Эндпоинт для проверки состояния системы и подключений.
+    Проверяет:
+    - Состояние флага активности потока
+    - Состояние подключения к RTSP потоку
+    """
+    if not active.value:
+        return {"status": "inactive", "details": "Система остановлена"}
+
+    # Проверяем подключение к RTSP потоку
+    cap = cv2.VideoCapture('rtsp://fake.kerberos.io/stream', cv2.CAP_FFMPEG)
+    if not cap.isOpened():
+        raise HTTPException(status_code=500, detail="Ошибка подключения к RTSP потоку")
+
+    # Закрываем соединение с потоком
+    cap.release()
+
+    return {"status": "active", "details": "Система работает корректно"}
 
 @app.get("/scenario/{scenario_id}")
 def get_scenario_status(scenario_id: int):
