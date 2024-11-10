@@ -5,6 +5,7 @@ import time
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
+from multiprocessing import Process, Value
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # FastAPI приложение
 app = FastAPI()
+
 
 class ScenarioState(BaseModel):
     action: str  # "start" or "stop"
@@ -50,18 +52,9 @@ class StateMachine:
         self.state = new_state
 
 class Runner:
-    def __init__(self, rtsp_url):
+    def __init__(self, rtsp_url, active):
         self.rtsp_url = rtsp_url
-        self.active = False
-
-    def start(self):
-        self.active = True
-        logger.info("Запуск runner'а")
-        self.process_video_stream()
-
-    def stop(self):
-        self.active = False
-        logger.info("Остановка runner'а")
+        self.active = active
 
     def process_video_stream(self):
         # Подключение к RTSP потоку
@@ -77,7 +70,7 @@ class Runner:
 
         # Обработка потока
         try:
-            while self.active:
+            while self.active.value:
                 ret, frame = cap.read()
                 if not ret:
                     logger.warning("Не удалось получить кадр из видеопотока.")
@@ -103,39 +96,42 @@ class Runner:
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     logger.info("Завершение работы по запросу пользователя (нажата клавиша 'q')")
                     break
-        except Exception as e:
-            logger.error(f"Ошибка во время обработки кадров: {e}")
         finally:
             cap.release()
             cv2.destroyAllWindows()
             logger.info("Соединение с RTSP потоком закрыто")
 
-# Создание глобального экземпляра Orchestrator для локального запуска и API
-orchestrator = Orchestrator(rtsp_url='rtsp://fake.kerberos.io/stream')
 
-@app.get("/scenario/{scenario_id}")
-def get_scenario_status(scenario_id: int):
-    """
-    Получить информацию о состоянии сценария по его ID.
-    """
-    return {"scenario_id": scenario_id, "state": orchestrator.state_machine.state}
+def start_runner(rtsp_url, active):
+    runner = Runner(rtsp_url, active)
+    runner.process_video_stream()
+
+
+active = Value('b', False)  # Флаг активности видеопотока
+process = None
+
 
 @app.post("/scenario/{scenario_id}/state")
 def change_scenario_state(scenario_id: int, state: ScenarioState):
-    """
-    Изменить состояние сценария по его ID.
-    Параметры:
-      - action: "start" для запуска, "stop" для остановки.
-    """
+    global process
     if state.action == "start":
-        orchestrator.start()
+        if not active.value:
+            active.value = True
+            process = Process(target=start_runner, args=('rtsp://fake.kerberos.io/stream', active))
+            process.start()
+            return {"scenario_id": scenario_id, "state": "started"}
+        else:
+            return {"error": "Сценарий уже запущен"}
     elif state.action == "stop":
-        orchestrator.stop()
+        if active.value:
+            active.value = False
+            process.join()
+            return {"scenario_id": scenario_id, "state": "stopped"}
+        else:
+            return {"error": "Сценарий не запущен"}
     else:
         return {"error": "Недопустимое действие. Используйте 'start' или 'stop'."}
 
-    return {"scenario_id": scenario_id, "new_state": orchestrator.state_machine.state}
 
 if __name__ == "__main__":
-    # Запуск FastAPI с использованием uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
