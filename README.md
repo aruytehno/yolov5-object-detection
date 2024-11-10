@@ -92,3 +92,26 @@
 - https://github.com/ultralytics/ultralytics
 - https://habr.com/ru/articles/717890/ (optional)
 - https://docs.ultralytics.com/guides/triton-inference-server/ (optional)
+
+
+### Запуск системы
+1. Запустите API:
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+2. **API вызовы**:
+   - **Получить состояние**:
+     ```bash
+     curl -X 'GET' 'http://127.0.0.1:8000/scenario/1'
+     ```
+   - **Запустить сценарий**:
+     ```bash
+     curl -X 'POST' 'http://127.0.0.1:8000/scenario/1/state' -H 'Content-Type: application/json' -d '{"action": "start"}'
+     ```
+   - **Остановить сценарий**:
+     ```bash
+     curl -X 'POST' 'http://127.0.0.1:8000/scenario/1/state' -H 'Content-Type: application/json' -d '{"action": "stop"}'
+     ```
+
+Теперь система поддерживает локальное управление и мониторинг через API, оставаясь автономной, пока API вызовы не поступят.

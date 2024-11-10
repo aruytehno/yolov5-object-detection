@@ -2,13 +2,19 @@ import cv2
 import torch
 import logging
 import time
-from flask import Flask, jsonify, request
+from fastapi import FastAPI
+from pydantic import BaseModel
+import uvicorn
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# FastAPI приложение
+app = FastAPI()
+
+class ScenarioState(BaseModel):
+    action: str  # "start" or "stop"
 
 class Orchestrator:
     def __init__(self, rtsp_url):
@@ -34,9 +40,6 @@ class Orchestrator:
         self.runner.stop()
         self.state_machine.transition_to('inactive')
         logger.info("Система остановлена")
-
-    def get_state(self):
-        return self.state_machine.state
 
 class StateMachine:
     def __init__(self):
@@ -107,34 +110,32 @@ class Runner:
             cv2.destroyAllWindows()
             logger.info("Соединение с RTSP потоком закрыто")
 
-# Инициализация оркестратора
-rtsp_url = 'rtsp://fake.kerberos.io/stream'
-orchestrator = Orchestrator(rtsp_url)
+# Создание глобального экземпляра Orchestrator для локального запуска и API
+orchestrator = Orchestrator(rtsp_url='rtsp://fake.kerberos.io/stream')
 
-@app.route('/api/state', methods=['GET'])
-def get_state():
+@app.get("/scenario/{scenario_id}")
+def get_scenario_status(scenario_id: int):
     """
-    Возвращает текущее состояние системы.
+    Получить информацию о состоянии сценария по его ID.
     """
-    state = orchestrator.get_state()
-    return jsonify({"state": state})
+    return {"scenario_id": scenario_id, "state": orchestrator.state_machine.state}
 
-@app.route('/api/state', methods=['POST'])
-def set_state():
+@app.post("/scenario/{scenario_id}/state")
+def change_scenario_state(scenario_id: int, state: ScenarioState):
     """
-    Изменяет состояние системы (запуск или остановка).
+    Изменить состояние сценария по его ID.
+    Параметры:
+      - action: "start" для запуска, "stop" для остановки.
     """
-    action = request.json.get('action')
-
-    if action == 'start':
+    if state.action == "start":
         orchestrator.start()
-        return jsonify({"status": "success", "message": "Orchestrator started"})
-    elif action == 'stop':
+    elif state.action == "stop":
         orchestrator.stop()
-        return jsonify({"status": "success", "message": "Orchestrator stopped"})
     else:
-        return jsonify({"status": "error", "message": "Invalid action"}), 400
+        return {"error": "Недопустимое действие. Используйте 'start' или 'stop'."}
+
+    return {"scenario_id": scenario_id, "new_state": orchestrator.state_machine.state}
 
 if __name__ == "__main__":
-    # Запуск Flask API
-    app.run(host='0.0.0.0', port=5000)
+    # Запуск FastAPI с использованием uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
