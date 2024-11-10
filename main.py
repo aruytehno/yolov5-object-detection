@@ -110,6 +110,15 @@ def start_runner(rtsp_url, active):
 active = Value('b', False)  # Флаг активности видеопотока
 process = None
 
+@app.get("/scenario/{scenario_id}")
+def get_scenario_status(scenario_id: int):
+    """
+    Получить информацию о состоянии сценария по его ID.
+    """
+    # Проверяем, запущен ли процесс (активное значение флага `active`).
+    state = "started" if active.value else "stopped"
+    return {"scenario_id": scenario_id, "state": state}
+
 
 @app.post("/scenario/{scenario_id}/state")
 def change_scenario_state(scenario_id: int, state: ScenarioState):
