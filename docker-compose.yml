@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  yolov5-app:
+    build:
+      context: .  # Указывает на текущую директорию, где находится Dockerfile
+    container_name: yolov5-container
+    ports:
+      - "8000:8000"  # Пробрасывает порт для доступа к FastAPI
+    volumes:
+      - .:/app  # Монтирует текущую директорию в контейнер
+    environment:
+      - RTSP_URL=rtsp://fake.kerberos.io/stream  # Пример переменной окружения, если это необходимо
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
