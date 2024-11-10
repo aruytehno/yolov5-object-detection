@@ -33,6 +33,7 @@ def detect_people_in_rtsp(rtsp_url, model_name='yolov5s'):
 
             # Уменьшаем разрешение кадра для ускорения обработки
             frame_resized = cv2.resize(frame, (640, 480))  # Уменьшаем размер кадра
+            # frame_resized = frame  # Используем кадр без изменения разрешения
 
             # Детектируем объекты на кадре
             results = model(frame_resized)
